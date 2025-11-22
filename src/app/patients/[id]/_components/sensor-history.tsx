@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { SensorData } from "@/lib/types";
+import type { PatientStatus, SensorData } from "@/lib/types";
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from "@/components/ui/badge";
 import { getPatientStatusFromSensorData } from "@/lib/types";
@@ -15,10 +15,11 @@ interface SensorHistoryProps {
 
 export function SensorHistory({ sensorHistory, isLoading }: SensorHistoryProps) {
 
-    const getStatusLabel = (status: "stable" | "warning" | "critical") => {
+    const getStatusLabel = (status: PatientStatus['level']) => {
         if (status === "critical") return "Critical";
         if (status === "warning") return "Warning";
-        return "Stable";
+        if (status === 'stable') return "Stable";
+        return "No Data";
     };
 
     // helper to safely parse Firestore timestamp (string or object)
