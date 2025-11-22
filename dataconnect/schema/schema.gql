@@ -1,0 +1,42 @@
+type Doctor @table {
+  name: String!
+  license: String!
+  speciality: String!
+  createdAt: Timestamp!
+  age: Int
+  email: String
+}
+
+type Patient @table {
+  name: String!
+  age: Int!
+  createdAt: Timestamp!
+  medicalHistory: String
+  doctor: Doctor
+}
+
+type Sensor @table {
+  sensorType: String!
+  createdAt: Timestamp!
+  locationDescription: String
+  patient: Patient
+}
+
+type PatientVitalsData @table {
+  timestamp: Timestamp!
+  value: Float!
+  unit: String!
+  notes: String
+  patient: Patient
+  sensor: Sensor
+}
+
+type RoomEnvironmentData @table {
+  timestamp: Timestamp!
+  gasConcentration: Float!
+  roomTemperature: Float!
+  humidity: Float!
+  unit: String
+  patient: Patient
+  sensor: Sensor
+}

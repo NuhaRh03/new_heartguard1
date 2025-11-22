@@ -1,0 +1,76 @@
+mutation SeedDatabase @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") @transaction {
+  doctor_insertMany(data: [
+    {
+      name: "Alice Smith",
+      speciality: "Cardiology",
+      license: "MD12345",
+      email: "alice.smith@example.com",
+      age: 45,
+      createdAt: "2024-04-26T10:00:00Z"
+    },
+    {
+      name: "Bob Johnson",
+      speciality: "Pediatrics",
+      license: "MD67890",
+      email: "bob.johnson@example.com",
+      age: 38,
+      createdAt: "2024-04-26T11:00:00Z"
+    }
+  ])
+  patient_insertMany(data: [
+    {
+      name: "Charlie Brown",
+      age: 10,
+      medicalHistory: "Asthma",
+      createdAt: "2024-04-26T12:00:00Z"
+    },
+    {
+      name: "Diana Davis",
+      age: 25,
+      medicalHistory: "None",
+      createdAt: "2024-04-26T13:00:00Z"
+    }
+  ])
+  sensor_insertMany(data: [
+    {
+      sensorType: "Temperature",
+      locationDescription: "Room 101",
+      createdAt: "2024-04-26T14:00:00Z"
+    },
+    {
+      sensorType: "Humidity",
+      locationDescription: "Room 102",
+      createdAt: "2024-04-26T15:00:00Z"
+    }
+  ])
+  patientVitalsData_insertMany(data: [
+    {
+      value: 37.0,
+      unit: "C",
+      timestamp: "2024-04-26T16:00:00Z",
+      notes: "Normal temperature"
+    },
+    {
+      value: 60.0,
+      unit: "%",
+      timestamp: "2024-04-26T17:00:00Z",
+      notes: "Normal humidity"
+    }
+  ])
+  roomEnvironmentData_insertMany(data: [
+    {
+      roomTemperature: 22.0,
+      humidity: 50.0,
+      gasConcentration: 0.0,
+      timestamp: "2024-04-26T18:00:00Z",
+      unit: "ppm"
+    },
+    {
+      roomTemperature: 23.0,
+      humidity: 55.0,
+      gasConcentration: 0.1,
+      timestamp: "2024-04-26T19:00:00Z",
+      unit: "ppm"
+    }
+  ])
+}

@@ -1,0 +1,132 @@
+mutation SeedData @transaction @auth(level: NO_ACCESS) {
+  doctor_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      name: "Dr. Alice Smith",
+      speciality: "Cardiology",
+      email: "alice.smith@example.com",
+      license: "MD-1234",
+      age: 45,
+      createdAt: "2024-01-29T10:00:00Z"
+    },
+    {
+      id: "660e8400-e29b-41d4-a716-446655440001",
+      name: "Dr. Bob Johnson",
+      speciality: "Pediatrics",
+      email: "bob.johnson@example.com",
+      license: "MD-5678",
+      age: 38,
+      createdAt: "2024-01-29T11:00:00Z"
+    }
+  ])
+  patient_insertMany(data: [
+    {
+      id: "770e8400-e29b-41d4-a716-446655440002",
+      doctorId: "550e8400-e29b-41d4-a716-446655440000",
+      name: "Charlie Brown",
+      age: 10,
+      createdAt: "2024-01-29T12:00:00Z",
+      medicalHistory: "Asthma"
+    },
+    {
+      id: "880e8400-e29b-41d4-a716-446655440003",
+      doctorId: "660e8400-e29b-41d4-a716-446655440001",
+      name: "Diana Davis",
+      age: 8,
+      createdAt: "2024-01-29T13:00:00Z",
+      medicalHistory: "Allergies"
+    }
+  ])
+  sensor_insertMany(data: [
+    {
+      id: "990e8400-e29b-41d4-a716-446655440004",
+      patientId: "770e8400-e29b-41d4-a716-446655440002",
+      sensorType: "Temperature",
+      createdAt: "2024-01-29T14:00:00Z",
+      locationDescription: "Forehead"
+    },
+    {
+      id: "aa0e8400-e29b-41d4-a716-446655440005",
+      patientId: "880e8400-e29b-41d4-a716-446655440003",
+      sensorType: "Humidity",
+      createdAt: "2024-01-29T15:00:00Z",
+      locationDescription: "Room"
+    }
+  ])
+  patientVitalsData_insertMany(data: [
+    {
+      patientId: "770e8400-e29b-41d4-a716-446655440002",
+      sensorId: "990e8400-e29b-41d4-a716-446655440004",
+      timestamp: "2024-01-29T14:05:00Z",
+      value: 98.6,
+      unit: "Fahrenheit",
+      notes: "Normal temperature"
+    },
+    {
+      patientId: "880e8400-e29b-41d4-a716-446655440003",
+      sensorId: "aa0e8400-e29b-41d4-a716-446655440005",
+      timestamp: "2024-01-29T15:05:00Z",
+      value: 30.0,
+      unit: "Percent",
+      notes: "Normal humidity"
+    }
+  ])
+  roomEnvironmentData_insertMany(data: [
+    {
+      patientId: "770e8400-e29b-41d4-a716-446655440002",
+      sensorId: "990e8400-e29b-41d4-a716-446655440004",
+      timestamp: "2024-01-29T14:10:00Z",
+      roomTemperature: 72.0,
+      humidity: 40.0,
+      gasConcentration: 1.2,
+      unit: "Various Units"
+    },
+    {
+      patientId: "880e8400-e29b-41d4-a716-446655440003",
+      sensorId: "aa0e8400-e29b-41d4-a716-446655440005",
+      timestamp: "2024-01-29T15:10:00Z",
+      roomTemperature: 70.0,
+      humidity: 35.0,
+      gasConcentration: 1.0,
+      unit: "Various Units"
+    }
+  ])
+}
+
+query ListPatientVitals @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  patientVitalsDatas {
+    id
+    patient {
+      name
+    }
+    sensor {
+      sensorType
+    }
+    timestamp
+    value
+    unit
+    notes
+  }
+}
+
+mutation CreateNewPatient($name: String!, $age: Int!, $doctorId: UUID!) @auth(level: USER) {
+  patient_insert(data: {
+    name: $name,
+    age: $age,
+    doctorId: $doctorId,
+    createdAt_expr: "request.time"
+  })
+}
+
+query GetDoctorPatients($doctorId: UUID!) @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  doctor(id: $doctorId) {
+    name
+    speciality
+    patients_on_doctor {
+      id
+      name
+      age
+      medicalHistory
+    }
+  }
+}

@@ -1,0 +1,31 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { 
+      allow read: if true; 
+    }
+
+    function isOwner(docData) {
+      return request.auth != null && request.auth.uid == docData.createdBy;
+    }
+    
+    match /doctors/{doctorId} {
+      allow write: if request.auth != null && request.auth.uid == doctorId;
+    }
+
+    match /patients/{patientId} {
+      allow create: if isOwner(request.resource.data);
+      allow list: if request.auth != null;
+      allow update, delete: if isOwner(resource.data);
+
+      match /sensorData/{readingId} {
+        allow create: if isOwner(get(/databases/$(database)/documents/patients/$(patientId)).data);
+        allow list: if isOwner(get(/databases/$(database)/documents/patients/$(patientId)).data);
+        allow write: if false; 
+      }
+    }
+  }
+}
+//this rules 

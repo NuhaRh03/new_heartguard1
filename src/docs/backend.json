@@ -1,0 +1,252 @@
+
+{
+  "entities": {
+    "PatientProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PatientProfile",
+      "type": "object",
+      "description": "Represents a patient's profile.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the patient profile."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the patient."
+        },
+        "birthDate": {
+          "type": "string",
+          "description": "The patient's date of birth.",
+          "format": "date"
+        },
+        "gender": {
+            "type": "string",
+            "enum": ["Male", "Female", "Other"],
+            "description": "The patient's gender."
+        },
+        "email": {
+            "type": "string",
+            "format": "email",
+            "description": "The patient's email address."
+        },
+        "phone": {
+            "type": "string",
+            "description": "The patient's phone number."
+        },
+        "emergencyContact": {
+            "type": "object",
+            "description": "The patient's emergency contact details.",
+            "properties": {
+                "name": {"type": "string"},
+                "relationship": {"type": "string"},
+                "phone": {"type": "string"}
+            },
+            "required": ["name", "relationship", "phone"]
+        },
+        "historicalDiseases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "A list of the patient's historical diseases."
+        },
+        "currentMedications": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "A list of the patient's current medications."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the patient profile was created."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The UID of the doctor who created this patient profile."
+        },
+        "status": {
+            "type": "string",
+            "enum": ["stable", "warning", "critical", "unknown"],
+            "description": "The current status of the patient based on sensor readings."
+        },
+        "lastReadingAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of the last sensor reading."
+        },
+        "latestSensorData": {
+          "$ref": "#/entities/SensorData"
+        },
+        "aiAnalysis": {
+            "$ref": "#/entities/AIAnalysisResult"
+        }
+      },
+      "required": [
+        "name",
+        "birthDate",
+        "gender",
+        "emergencyContact",
+        "createdBy"
+      ]
+    },
+    "AIAnalysisResult": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AIAnalysisResult",
+      "type": "object",
+      "description": "Represents the result of an AI analysis on sensor data.",
+      "properties": {
+        "anomalyLevel": {
+          "type": "number",
+          "description": "The detected anomaly level (0-10)."
+        },
+        "explanation": {
+          "type": "string",
+          "description": "The AI-generated explanation for the analysis."
+        },
+        "alertTriggered": {
+          "type": "boolean",
+          "description": "Whether the anomaly level triggered an alert."
+        },
+        "analyzedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the analysis was performed."
+        }
+      },
+      "required": ["anomalyLevel", "explanation", "alertTriggered", "analyzedAt"]
+    },
+    "SensorData": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SensorData",
+      "type": "object",
+      "description": "Represents a single sensor data reading for a patient.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the sensor data entry."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp of the sensor reading.",
+          "format": "date-time"
+        },
+        "heartRate": {
+          "type": "number",
+          "description": "Patient's heart rate (beats per minute)."
+        },
+        "o2Saturation": {
+          "type": "number",
+          "description": "Patient's O2 saturation level (%)."
+        },
+        "roomHumidity": {
+          "type": "number",
+          "description": "Humidity in the room (%)."
+        },
+        "roomTemperature": {
+          "type": "number",
+          "description": "Temperature in the room (°C)."
+        },
+        "patientTemperature": {
+            "type": "number",
+            "description": "Patient's body temperature (°C)."
+        },
+        "collectedBy": {
+          "type": "string",
+          "description": "UID of the doctor who collected the data."
+        }
+      },
+      "required": [
+        "timestamp",
+        "heartRate",
+        "o2Saturation",
+        "roomHumidity",
+        "roomTemperature",
+        "patientTemperature",
+        "collectedBy"
+      ]
+    },
+    "DoctorProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DoctorProfile",
+      "type": "object",
+      "description": "Represents a doctor's profile.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the doctor profile. Matches Auth UID."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the doctor."
+        },
+        "dateOfBirth": {
+          "type": "string",
+          "description": "The doctor's date of birth.",
+          "format": "date"
+        },
+        "age": {
+          "type": "number",
+          "description": "The doctor's age."
+        },
+        "speciality": {
+          "type": "string",
+          "description": "The doctor's medical specialty."
+        },
+        "idCardNumber": {
+          "type": "string",
+          "description": "The doctor's ID card number."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dateOfBirth",
+        "age",
+        "speciality",
+        "idCardNumber"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/doctors/{doctorId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/DoctorProfile"
+          },
+          "description": "Collection of doctor profiles. Each document ID is the doctor's Auth UID."
+        }
+      },
+      {
+        "path": "/patients/{patientId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/PatientProfile"
+          },
+          "description": "Top-level collection of patient profiles. Access is controlled by the `createdBy` field."
+        }
+      },
+      {
+        "path": "/patients/{patientId}/sensorData/{readingId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/SensorData"
+          },
+          "description": "Subcollection of sensor readings for a patient. Access is controlled by the `createdBy` field on the parent patient document."
+        }
+      }
+    ],
+    "reasoning": "This structure uses a top-level `patients` collection for easier querying across all patients if needed in the future, while still maintaining security. Doctor profiles are kept separate in their own collection. A `sensorData` subcollection is used to store time-series data for each patient. Security rules are designed to ensure that doctors can only access patient data they have created and the corresponding sensor data."
+  }
+}
+
+    
