@@ -54,6 +54,7 @@ export function VitalCard({
                 "text-2xl font-bold transition-colors",
                 isAbnormal ? "text-destructive" : ""
               )}
+               style={!isAbnormal ? { color } : {}}
             >
               {value.toFixed(showXAxis ? 0 : 1)}
               <span className="text-xs text-muted-foreground ml-1">{unit}</span>

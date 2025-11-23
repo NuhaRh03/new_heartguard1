@@ -63,7 +63,7 @@ export function VitalsMonitor({
         Icon={Wind}
         data={recentHistory}
         dataKey="o2Saturation"
-        color="hsl(var(--chart-2))"
+        color="hsl(var(--primary))"
         normalRange={[95, 100]}
       />
       <VitalCard
