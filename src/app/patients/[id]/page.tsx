@@ -25,36 +25,6 @@ import { useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { runAnomalyDetection } from './actions';
 
-// This function calls our new decryption API route
-async function decryptData(encryptedData: string): Promise<Omit<SensorData, 'id' | 'gasValue'>> {
-    const response = await fetch('/api/decrypt', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data: encryptedData }),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Decryption failed: ${errorText}`);
-    }
-
-    const decrypted = await response.json();
-    
-    // The C++ code sends BPM, but our type expects heartRate. Let's map it.
-    // It also sends other fields we can map.
-    return {
-        timestamp: decrypted.timestamp || new Date().toISOString(),
-        heartRate: decrypted.BPM,
-        patientTemperature: decrypted.TempDS,
-        roomTemperature: decrypted.TempDHT,
-        roomHumidity: decrypted.Hum,
-        o2Saturation: decrypted.o2Saturation,
-        collectedBy: decrypted.collectedBy,
-    };
-}
-
 
 export default function PatientPage() {
   const params = useParams() as any;
@@ -100,9 +70,9 @@ export default function PatientPage() {
         if (snapshot.exists() && !isProcessing.current) {
           isProcessing.current = true;
           try {
-            const encryptedReadings = snapshot.val();
+            const readings = snapshot.val();
             // Get the last pushed item's key
-            const lastKey = Object.keys(encryptedReadings).pop();
+            const lastKey = Object.keys(readings).pop();
 
             // If we've already processed this reading, skip it
             if (!lastKey || lastKey === lastProcessedKey.current) {
@@ -111,16 +81,18 @@ export default function PatientPage() {
             }
             lastProcessedKey.current = lastKey;
 
-            const encryptedData = encryptedReadings[lastKey];
-
-            if (typeof encryptedData !== 'string') {
-                console.warn("Received invalid sensor data (not a string), skipping.", encryptedData);
-                isProcessing.current = false;
-                return;
-            }
-
-            // Decrypt the data using the API route
-            const newReading = await decryptData(encryptedData);
+            const readingData = readings[lastKey];
+            
+            // Directly parse the JSON data
+             const newReading: Omit<SensorData, 'id'> = {
+                timestamp: readingData.timestamp || new Date().toISOString(),
+                heartRate: readingData.BPM,
+                patientTemperature: readingData.TempDS,
+                roomTemperature: readingData.TempDHT,
+                roomHumidity: readingData.Hum,
+                o2Saturation: readingData.o2Saturation,
+                collectedBy: readingData.collectedBy,
+            };
             
             // Save the new reading to the sensorData subcollection
             const readingsCollectionRef = collection(firestore, 'patients', id, 'sensorData');
