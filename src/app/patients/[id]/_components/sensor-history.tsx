@@ -105,10 +105,8 @@ export function SensorHistory({ sensorHistory, isLoading }: SensorHistoryProps) 
 
             {!isLoading &&
               sortedHistory.map((reading) => {
-                // statut calculé à partir des données
                 const computedStatus = getPatientStatusFromSensorData(reading) as Status;
 
-                // si tu as stocké un champ "status" dans Firestore, on le priorise
                 const status: Status =
                   ((reading as any).status as Status | undefined) ??
                   computedStatus ??
@@ -116,11 +114,7 @@ export function SensorHistory({ sensorHistory, isLoading }: SensorHistoryProps) 
 
                 return (
                   <TableRow
-                    key={
-                      (reading as any).id ||
-                      String(reading.timestamp) ||
-                      JSON.stringify(reading)
-                    }
+                    key={reading.id}
                   >
                     <TableCell>{formatTimestamp(reading.timestamp)}</TableCell>
 
