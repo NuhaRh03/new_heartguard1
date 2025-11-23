@@ -45,7 +45,6 @@ export interface SensorData {
   roomHumidity: number; // Hum
   roomTemperature: number; // TempDHT
   patientTemperature: number; // TempDS
-  gasValue?: number; // Gaz - now optional as it's processed
   collectedBy: string;
 }
 
@@ -63,6 +62,9 @@ export const getAIStatus = (anomalyLevel: number): PatientStatus['level'] => {
 
 
 export const getPatientStatusFromSensorData = (reading: Omit<SensorData, 'id'>): PatientStatus['level'] => {
+    if (!reading || typeof reading.patientTemperature === 'undefined') {
+        return 'unknown';
+    }
     if (reading.patientTemperature > 39.5 || reading.heartRate > 120 || reading.heartRate < 50 || (reading.o2Saturation && reading.o2Saturation < 90)) {
         return 'critical';
     }
@@ -85,5 +87,3 @@ export const getPatientStatusAppearance = (status?: Patient['status']): PatientS
       return { level: 'unknown', label: 'No Data' };
   }
 };
-
-    

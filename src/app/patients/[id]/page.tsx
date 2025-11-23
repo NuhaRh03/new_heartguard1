@@ -25,31 +25,35 @@ import { useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { runAnomalyDetection } from './actions';
 
-// Data structure from the device
-interface RawReading {
-    BPM: number;
-    TempDHT: number;
-    Hum: number;
-    TempDS: number;
-    Gaz: number;
-}
+// This function calls our new decryption API route
+async function decryptData(encryptedData: string): Promise<Omit<SensorData, 'id' | 'gasValue'>> {
+    const response = await fetch('/api/decrypt', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ data: encryptedData }),
+    });
 
-// Function to map the gas value to O2 saturation
-// This is a simplified example. A real-world scenario would require a calibrated sensor and a proper conversion formula.
-const mapGasToO2 = (gasValue: number): number => {
-    const minGas = 200; // Lower bound of your sensor's expected "normal" air reading
-    const maxGas = 800; // Upper bound (less oxygen)
-    const minO2 = 90; // Don't show less than 90%
-    const maxO2 = 100; // Max O2
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Decryption failed: ${errorText}`);
+    }
 
-    // Clamp the gas value to its expected range
-    const clampedGas = Math.max(minGas, Math.min(gasValue, maxGas));
+    const decrypted = await response.json();
     
-    // Invert the mapping: higher gas value means lower O2
-    const o2 = maxO2 - ((clampedGas - minGas) / (maxGas - minGas)) * (maxO2 - minO2);
-
-    return Math.max(minO2, Math.min(o2, maxO2)); // Ensure the result is within O2 bounds
-};
+    // The C++ code sends BPM, but our type expects heartRate. Let's map it.
+    // It also sends other fields we can map.
+    return {
+        timestamp: decrypted.timestamp || new Date().toISOString(),
+        heartRate: decrypted.BPM,
+        patientTemperature: decrypted.TempDS,
+        roomTemperature: decrypted.TempDHT,
+        roomHumidity: decrypted.Hum,
+        o2Saturation: decrypted.o2Saturation,
+        collectedBy: decrypted.collectedBy,
+    };
+}
 
 
 export default function PatientPage() {
@@ -80,13 +84,15 @@ export default function PatientPage() {
   const { data: sensorHistory, isLoading: isLoadingHistory } = useCollection<SensorData>(sensorHistoryQuery);
 
   const isProcessing = useRef(false);
+  const lastProcessedKey = useRef<string | null>(null);
 
   // ---------- 3) Sensor data from Realtime Database ----------
   useEffect(() => {
     if (!id || !user || !firestore) return; // Wait for patient ID and authenticated user
 
     const db = getDatabase();
-    const streamRef = ref(db, `/iot_data/data`);
+    // Listen to the specific device path
+    const streamRef = ref(db, `/sensors/ESP32_01`);
 
     const unsubscribe = onValue(
       streamRef,
@@ -94,26 +100,27 @@ export default function PatientPage() {
         if (snapshot.exists() && !isProcessing.current) {
           isProcessing.current = true;
           try {
-            // Data is now expected to be a raw JSON object
-            const rawReading: RawReading = snapshot.val();
-            
-            // Validate the received data
-            if (typeof rawReading.BPM !== 'number') {
-                console.warn("Received invalid sensor data, skipping.", rawReading);
+            const encryptedReadings = snapshot.val();
+            // Get the last pushed item's key
+            const lastKey = Object.keys(encryptedReadings).pop();
+
+            // If we've already processed this reading, skip it
+            if (!lastKey || lastKey === lastProcessedKey.current) {
+                 isProcessing.current = false;
+                 return;
+            }
+            lastProcessedKey.current = lastKey;
+
+            const encryptedData = encryptedReadings[lastKey];
+
+            if (typeof encryptedData !== 'string') {
+                console.warn("Received invalid sensor data (not a string), skipping.", encryptedData);
                 isProcessing.current = false;
                 return;
             }
 
-            const newReading: Omit<SensorData, 'id'> = {
-              timestamp: new Date().toISOString(),
-              heartRate: rawReading.BPM,
-              patientTemperature: rawReading.TempDS,
-              roomTemperature: rawReading.TempDHT,
-              roomHumidity: rawReading.Hum,
-              gasValue: rawReading.Gaz,
-              o2Saturation: mapGasToO2(rawReading.Gaz),
-              collectedBy: 'device-iot-01',
-            };
+            // Decrypt the data using the API route
+            const newReading = await decryptData(encryptedData);
             
             // Save the new reading to the sensorData subcollection
             const readingsCollectionRef = collection(firestore, 'patients', id, 'sensorData');
@@ -142,7 +149,7 @@ export default function PatientPage() {
              if (patientDocRef) {
                 const updatePayload: Partial<Patient> = {
                     latestSensorData: newReading,
-                    lastReadingAt: newReading.timestamp,
+                    lastReadingAt: new Date().toISOString(),
                 };
 
                 if(aiResponse.success && aiResponse.data) {
