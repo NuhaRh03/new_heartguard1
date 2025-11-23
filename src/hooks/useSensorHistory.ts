@@ -7,7 +7,6 @@ import {
   orderBy,
   limit,
   onSnapshot,
-  Timestamp,
 } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase } from '@/firebase';
 import type { SensorData } from '@/lib/types';
@@ -26,6 +25,7 @@ export function useSensorHistory(patientId: string | undefined): UseSensorHistor
 
   const sensorHistoryQuery = useMemoFirebase(() => {
     if (!firestore || !patientId) return null;
+    // Corrected path from 'lastReadings' to 'sensorData'
     return query(
       collection(firestore, `patients/${patientId}/sensorData`),
       orderBy('timestamp', 'desc'),
@@ -56,7 +56,6 @@ export function useSensorHistory(patientId: string | undefined): UseSensorHistor
             roomHumidity: data.roomHumidity ?? null,
             roomTemperature: data.roomTemperature ?? null,
             collectedBy: data.collectedBy ?? 'unknown',
-            status: data.status ?? 'unknown',
           } as SensorData;
         });
         setSensorHistory(history);
