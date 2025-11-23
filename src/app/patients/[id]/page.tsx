@@ -61,7 +61,7 @@ export default function PatientPage() {
     if (!id || !user || !firestore) return; // Wait for patient ID and authenticated user
 
     const db = getDatabase();
-    // Listen to the specific device path
+    // Listen to the specific device path for encrypted data
     const streamRef = ref(db, `/sensors/ESP32_01`);
 
     const unsubscribe = onValue(
@@ -71,39 +71,47 @@ export default function PatientPage() {
           isProcessing.current = true;
           try {
             const readings = snapshot.val();
-            // Get the last pushed item's key
             const lastKey = Object.keys(readings).pop();
 
-            // If we've already processed this reading, skip it
             if (!lastKey || lastKey === lastProcessedKey.current) {
                  isProcessing.current = false;
                  return;
             }
             lastProcessedKey.current = lastKey;
 
-            const readingData = readings[lastKey];
+            const encryptedData = readings[lastKey];
             
-            // Directly parse the JSON data
+            // Call the decryption API
+            const decryptResponse = await fetch('/api/decrypt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: encryptedData }),
+            });
+
+            if (!decryptResponse.ok) {
+                throw new Error(`Decryption failed: ${await decryptResponse.text()}`);
+            }
+
+            const decryptedReading = await decryptResponse.json();
+            
              const newReading: Omit<SensorData, 'id'> = {
-                timestamp: readingData.timestamp || new Date().toISOString(),
-                heartRate: readingData.BPM,
-                patientTemperature: readingData.TempDS,
-                roomTemperature: readingData.TempDHT,
-                roomHumidity: readingData.Hum,
-                o2Saturation: readingData.o2Saturation,
-                collectedBy: readingData.collectedBy,
+                timestamp: decryptedReading.timestamp || new Date().toISOString(),
+                heartRate: decryptedReading.BPM,
+                patientTemperature: decryptedReading.TempDS,
+                roomTemperature: decryptedReading.TempDHT,
+                roomHumidity: decryptedReading.Hum,
+                o2Saturation: decryptedReading.o2Saturation,
+                collectedBy: decryptedReading.collectedBy,
             };
             
-            // Save the new reading to the sensorData subcollection
             const readingsCollectionRef = collection(firestore, 'patients', id, 'sensorData');
             await addDoc(readingsCollectionRef, {
                 ...newReading,
-                timestamp: serverTimestamp() // Use server timestamp for consistency
+                timestamp: serverTimestamp() 
             });
 
             const allReadings = [newReading, ...(sensorHistory || []).map(s => ({...s, timestamp: new Date(s.timestamp).toISOString()}))].slice(0, 20);
 
-            // Run AI analysis
             const aiResponse = await runAnomalyDetection({
                 patientId: id,
                 sensorData: allReadings.map(d => ({
@@ -117,7 +125,6 @@ export default function PatientPage() {
                 alertThreshold: 7,
             });
             
-            // Update patient doc with latest data and AI analysis
              if (patientDocRef) {
                 const updatePayload: Partial<Patient> = {
                     latestSensorData: newReading,
@@ -133,7 +140,7 @@ export default function PatientPage() {
                         analyzedAt: new Date().toISOString()
                     };
                 } else {
-                   updatePayload.status = getAIStatus(0); // Default to stable if AI fails
+                   updatePayload.status = getAIStatus(0);
                 }
                 await updateDoc(patientDocRef, updatePayload);
              }
@@ -141,7 +148,7 @@ export default function PatientPage() {
           } catch (error) {
             console.error("Failed to process sensor data:", error);
           } finally {
-            setTimeout(() => { isProcessing.current = false; }, 1000); // Prevent rapid-fire processing
+            setTimeout(() => { isProcessing.current = false; }, 1000);
           }
         }
       },
@@ -188,12 +195,10 @@ export default function PatientPage() {
     );
   }
 
-  // After loading, if there's no user, an id, a ref, OR a patient, it's a 404.
   if (!patient && patientDocRef) {
     notFound();
   }
 
-  // This should only happen if the user is not authenticated for this patient.
   if (!patient) {
      return (
       <DashboardLayout>

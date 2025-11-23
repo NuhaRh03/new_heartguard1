@@ -9,6 +9,8 @@ This file contains the C++ code intended for an ESP32 device to read sensor data
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <time.h>  
+#include <AESLib.h>
+#include <Base64.h>
 
 // ====== CONFIG WIFI ======
 #define WIFI_SSID "La_Fibre_dOrange_52EF"
@@ -29,6 +31,12 @@ This file contains the C++ code intended for an ESP32 device to read sensor data
 DHT dht(DHTPIN, DHTTYPE);
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
+
+// ====== AES ======
+AESLib aesLib;
+
+byte aes_key[16] = {'M','a','C','l','e','S','e','c','r','e','t','e','A','E','S','1'};
+byte aes_iv[16]  = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 
 // ====== FIREBASE ======
 FirebaseData fbdo;
@@ -99,28 +107,45 @@ void loop() {
   // === Timestamp NTP ===
   String timestamp = getTimestamp();
 
-  // ========= CRÉATION JSON =========
-  FirebaseJson json;
-  json.set("BPM", bpm);
-  json.set("Gaz", gasValue);
-  json.set("Hum", hum);
-  json.set("TempDHT", tempDHT);
-  json.set("TempDS", tempDS);
-  json.set("collectedBy", device_id);
-  json.set("o2Saturation", o2Saturation);
-  json.set("timestamp", timestamp);
+  // ========= CRÉATION JSON EN TEXTE =========
+  char json[256];
+  sprintf(json,
+          "{\"BPM\":%d,\"Gaz\":%d,\"Hum\":%.2f,\"TempDHT\":%.2f,"
+          "\"TempDS\":%.2f,\"collectedBy\":\"%s\","
+          "\"o2Saturation\":%.1f,\"timestamp\":\"%s\"}",
+          bpm, gasValue, hum, tempDHT, tempDS,
+          device_id.c_str(),
+          o2Saturation, timestamp.c_str());
 
   Serial.println("=== JSON clair ===");
-  String jsonStr;
-  json.toString(jsonStr, true); // pretty print
-  Serial.println(jsonStr);
+  Serial.println(json);
+
+  // ========= CHIFFREMENT AES =========
+  byte encrypted_bytes[256];
+  int enc_len = aesLib.encrypt(
+      (byte*)json,
+      strlen(json),
+      encrypted_bytes,
+      aes_key,
+      128,
+      aes_iv
+  );
+
+  // ========= ENCODAGE BASE64 =========
+  char encrypted_base64[512];
+  base64_encode(encrypted_base64, (char*)encrypted_bytes, enc_len);
+
+  Serial.println("=== JSON chiffré Base64 ===");
+  Serial.println(encrypted_base64);
 
   // ========= Envoi Firebase =========
+
+  // Chemin Firebase
   String firebase_path = "/sensors/" + device_id;
 
   // Push
-  if (Firebase.RTDB.pushJSON(&fbdo, firebase_path.c_str(), &json)) {
-    Serial.println("✅ Données envoyées !");
+  if (Firebase.RTDB.pushString(&fbdo, firebase_path.c_str(), encrypted_base64)) {
+    Serial.println("✅ Données chiffrées envoyées !");
   } else {
     Serial.print("❌ Erreur Firebase : ");
     Serial.println(fbdo.errorReason());
