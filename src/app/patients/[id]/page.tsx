@@ -3,11 +3,6 @@
 import { useParams, notFound } from 'next/navigation';
 import { doc, updateDoc, serverTimestamp, addDoc, collection, query, orderBy, limit } from 'firebase/firestore';
 import {
-  getDatabase,
-  ref,
-  onValue,
-} from 'firebase/database';
-import {
   useDoc,
   useFirestore,
   useMemoFirebase,
@@ -53,115 +48,8 @@ export default function PatientPage() {
 
   const { data: sensorHistory, isLoading: isLoadingHistory } = useCollection<SensorData>(sensorHistoryQuery);
 
-  const isProcessing = useRef(false);
-  const lastProcessedKey = useRef<string | null>(null);
 
-  // ---------- 3) Sensor data from Realtime Database ----------
-  useEffect(() => {
-    if (!id || !user || !firestore) return; // Wait for patient ID and authenticated user
-
-    const db = getDatabase();
-    // Listen to the specific device path for encrypted data
-    const streamRef = ref(db, `/sensors/ESP32_01`);
-
-    const unsubscribe = onValue(
-      streamRef,
-      async (snapshot) => {
-        if (snapshot.exists() && !isProcessing.current) {
-          isProcessing.current = true;
-          try {
-            const readings = snapshot.val();
-            const lastKey = Object.keys(readings).pop();
-
-            if (!lastKey || lastKey === lastProcessedKey.current) {
-                 isProcessing.current = false;
-                 return;
-            }
-            lastProcessedKey.current = lastKey;
-
-            const encryptedData = readings[lastKey];
-            
-            // Call the decryption API
-            const decryptResponse = await fetch('/api/decrypt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data: encryptedData }),
-            });
-
-            if (!decryptResponse.ok) {
-                throw new Error(`Decryption failed: ${await decryptResponse.text()}`);
-            }
-
-            const decryptedReading = await decryptResponse.json();
-            
-             const newReading: Omit<SensorData, 'id'> = {
-                timestamp: decryptedReading.timestamp || new Date().toISOString(),
-                heartRate: decryptedReading.BPM,
-                patientTemperature: decryptedReading.TempDS,
-                roomTemperature: decryptedReading.TempDHT,
-                roomHumidity: decryptedReading.Hum,
-                o2Saturation: decryptedReading.o2Saturation,
-                collectedBy: decryptedReading.collectedBy,
-            };
-            
-            const readingsCollectionRef = collection(firestore, 'patients', id, 'sensorData');
-            await addDoc(readingsCollectionRef, {
-                ...newReading,
-                timestamp: serverTimestamp() 
-            });
-
-            const allReadings = [newReading, ...(sensorHistory || []).map(s => ({...s, timestamp: new Date(s.timestamp).toISOString()}))].slice(0, 20);
-
-            const aiResponse = await runAnomalyDetection({
-                patientId: id,
-                sensorData: allReadings.map(d => ({
-                    timestamp: d.timestamp,
-                    heartRate: d.heartRate,
-                    o2Saturation: d.o2Saturation,
-                    roomTemperature: d.roomTemperature,
-                    patientTemperature: d.patientTemperature,
-                    roomHumidity: d.roomHumidity,
-                })),
-                alertThreshold: 7,
-            });
-            
-             if (patientDocRef) {
-                const updatePayload: Partial<Patient> = {
-                    latestSensorData: newReading,
-                    lastReadingAt: new Date().toISOString(),
-                };
-
-                if(aiResponse.success && aiResponse.data) {
-                    updatePayload.status = getAIStatus(aiResponse.data.anomalyLevel);
-                    updatePayload.aiAnalysis = {
-                        anomalyLevel: aiResponse.data.anomalyLevel,
-                        explanation: aiResponse.data.explanation,
-                        alertTriggered: aiResponse.data.alertTriggered,
-                        analyzedAt: new Date().toISOString()
-                    };
-                } else {
-                   updatePayload.status = getAIStatus(0);
-                }
-                await updateDoc(patientDocRef, updatePayload);
-             }
-
-          } catch (error) {
-            console.error("Failed to process sensor data:", error);
-          } finally {
-            setTimeout(() => { isProcessing.current = false; }, 1000);
-          }
-        }
-      },
-      (error) => {
-        console.error('Error loading sensor data from RTDB:', error);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [id, user, firestore, patientDocRef, sensorHistory]);
-
-
-  // ---------- 4) Loading / errors / 404 ----------
+  // ---------- 3) Loading / errors / 404 ----------
   const isStillLoading = isUserLoading || isLoadingPatient;
 
   if (isStillLoading) {
@@ -225,7 +113,7 @@ export default function PatientPage() {
     );
   }
   
-  // ---------- 5) Page layout ----------
+  // ---------- 4) Page layout ----------
   return (
     <DashboardLayout>
       <main className="p-4 sm:px-6 sm:py-0 md:gap-8 space-y-4">
