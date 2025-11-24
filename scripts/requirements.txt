@@ -1,0 +1,2 @@
+firebase-admin>=6.0.0
+pycryptodome>=3.12.0
