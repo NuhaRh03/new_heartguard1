@@ -2,7 +2,7 @@
 
 This file contains the C++ code for the ESP32 device responsible for collecting and transmitting sensor data. The device encrypts the data using AES-128-CBC and sends it to the Firebase Realtime Database.
 
-The web application listens for this encrypted data, decrypts it on the server, and then saves it to Firestore.
+A separate Python script (`scripts/rtdb_to_firestore_sync.py`) listens for this encrypted data, decrypts it, and then saves it to Firestore.
 
 ## Dependencies
 
@@ -51,7 +51,7 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
 // ====== AES CONFIGURATION ======
-// IMPORTANT: This key and IV MUST match the ones used in the backend decryption API.
+// IMPORTANT: This key and IV MUST match the ones used in the backend decryption script.
 const unsigned char AES_KEY[16] = {'M','a','C','l','e','S','e','c','r','e','t','e','A','E','S','1'};
 const unsigned char AES_IV_INIT[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 
@@ -181,6 +181,7 @@ void loop() {
   String timestamp = getTimestamp();
 
   // === Create JSON String ===
+  // Note: These keys (heartRate, patientTemperature) match what the backend script expects.
   char json[256];
   sprintf(json,
           "{\"heartRate\":%d,\"roomHumidity\":%.1f,\"patientTemperature\":%.2f,"
@@ -215,5 +216,4 @@ void loop() {
   Serial.println("----------------------------");
   delay(SAMPLE_INTERVAL);
 }
-
 ```

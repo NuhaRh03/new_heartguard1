@@ -6,7 +6,7 @@ import base64
 import json
 import random
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
@@ -62,15 +62,15 @@ def aes_encrypt_to_base64(plain_text: str) -> str:
 def generate_sensor_reading() -> dict:
     """
     Generates plausible values to simulate real sensors.
+    The keys here match what the backend script expects after decryption.
     """
     bpm = random.randint(65, 95)                 # heart rate
-    gas = random.randint(200, 600)               # MQ135-ish value
     hum = round(random.uniform(40.0, 55.0), 2)   # humidity
     temp_dht = round(random.uniform(22.0, 26.0), 2)  # room temp
     temp_ds = round(random.uniform(36.5, 37.5), 2)   # patient temp
     spo2 = round(random.uniform(96.0, 99.0), 1)      # O2 saturation
 
-    timestamp = datetime.now().isoformat()
+    timestamp = datetime.now(timezone.utc).isoformat()
 
     return {
         "heartRate": bpm,
